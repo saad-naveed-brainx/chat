@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "451933903890",
+    "project_id": "chitchat-bf714",
+    "storage_bucket": "chitchat-bf714.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:451933903890:android:dde36ba00771c2b2220ccb",
+        "android_client_info": {
+          "package_name": "com.example.chatme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_Phoi20C9hnYIFf41EPqxp_kCfXS3or0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:451933903890:android:b22f5a354d1eec11220ccb",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_Phoi20C9hnYIFf41EPqxp_kCfXS3or0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
