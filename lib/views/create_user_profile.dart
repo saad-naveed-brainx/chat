@@ -1,10 +1,11 @@
+import 'package:chatme/core/constants/app_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../views/home_screen.dart';
 import '../core/constants/view_constants.dart';
+import '../config/app_router.dart';
 
 class CreateUserProfile extends StatefulWidget {
   const CreateUserProfile({super.key});
@@ -22,42 +23,6 @@ class _CreateUserProfileState extends State<CreateUserProfile> {
   void initState() {
     super.initState();
     checkUser();
-  }
-
-  void checkUser() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? userId = prefs.getString('userId');
-    if (userId != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      );
-    }
-  }
-
-  Future<void> _createUser() async {
-    if (nameController.text.isNotEmpty) {
-      String userId = uuid.v4();
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userId', userId);
-      UserModel user = UserModel(id: userId, name: nameController.text);
-
-      await FirebaseFirestore.instance.collection('users').add(user.toJson());
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      );
-    }
-  }
-
-  String? nameValidator(String? value) {
-    if (value == null || value.isEmpty) {
-      return ViewConstants.nameIsRequired;
-    }
-    if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(value)) {
-      return ViewConstants.nameShouldOnlyContainAlphabets;
-    }
-    return null;
   }
 
   void validateAndSave() {
@@ -81,8 +46,8 @@ class _CreateUserProfileState extends State<CreateUserProfile> {
                 key: formKey,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20.0,
-                    vertical: 10.0,
+                    horizontal: AppConstants.gap20Px,
+                    vertical: AppConstants.gap10Px,
                   ),
                   child: TextFormField(
                     controller: nameController,
@@ -96,36 +61,44 @@ class _CreateUserProfileState extends State<CreateUserProfile> {
                       fillColor: Colors.grey[100],
                       prefixIcon: const Icon(Icons.person, color: Colors.blue),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15.0),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.gap14Px,
+                        ),
                         borderSide: BorderSide(color: Colors.blue.shade200),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15.0),
-                        borderSide: const BorderSide(
-                          color: Colors.blue,
-                          width: 2.0,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.gap14Px,
+                        ),
+                        borderSide: BorderSide(
+                          color: Colors.blue.shade200,
+                          width: AppConstants.gap2Px,
                         ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                        vertical: 15.0,
+                        vertical: AppConstants.gap14Px,
                       ),
                     ),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20.0),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppConstants.gap20Px,
+                ),
                 child: ElevatedButton(
                   onPressed: validateAndSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 50.0,
-                      vertical: 15.0,
+                      horizontal: AppConstants.gap24Px * 2,
+                      vertical: AppConstants.gap14Px,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.gap14Px * 2,
+                      ),
                     ),
                     elevation: 5,
                     shadowColor: Colors.blue.withOpacity(0.5),
@@ -133,7 +106,7 @@ class _CreateUserProfileState extends State<CreateUserProfile> {
                   child: const Text(
                     ViewConstants.startChatting,
                     style: TextStyle(
-                      fontSize: 14.0,
+                      fontSize: AppConstants.gap14Px,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -144,5 +117,34 @@ class _CreateUserProfileState extends State<CreateUserProfile> {
         ),
       ),
     );
+  }
+
+  void checkUser() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('userId');
+    if (userId != null) {
+      AppRouter.moveToHomeScreen(context);
+    }
+  }
+
+  Future<void> _createUser() async {
+    if (nameController.text.isNotEmpty) {
+      String userId = uuid.v4();
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('userId', userId);
+      UserModel user = UserModel(id: userId, name: nameController.text);
+      await FirebaseFirestore.instance.collection('users').add(user.toJson());
+      AppRouter.moveToHomeScreen(context);
+    }
+  }
+
+  String? nameValidator(String? value) {
+    if (value == null || value.isEmpty) {
+      return ViewConstants.nameIsRequired;
+    }
+    if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(value)) {
+      return ViewConstants.nameShouldOnlyContainAlphabets;
+    }
+    return null;
   }
 }

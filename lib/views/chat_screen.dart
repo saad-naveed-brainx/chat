@@ -1,27 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'dart:async';
 import '../core/constants/app_constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/view_constants.dart';
+import '../models/message_model.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, required this.user2Id, required this.user2Name});
+  final String user2Id;
+  final String user2Name;
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  // StreamController<List<String>> streamController =
-  // StreamController<List<String>>();
   TextEditingController textEditingController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  List<String> users = [];
   String user1 = '';
-  String user2 = '';
+  String? chatId;
+
   @override
   void initState() {
     super.initState();
-    fetchUsers();
+    SchedulerBinding.instance.addPostFrameCallback((callback) {
+      iniliazeZomponent();
+    });
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         _scrollToBottom(delay: true);
@@ -29,22 +35,9 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  Future<void> fetchUsers() async {
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('users').get();
-      for (var doc in snapshot.docs) {
-        // print('User ID: ${doc.id}, Data: ${doc.data()}');
-        users.add(doc.id);
-        // print(users);
-      }
-      user1 = users[0];
-      user2 = users[1];
-      // print(user1);
-      // print(user2);
-    } catch (e) {
-      print('Error fetching users: $e');
-    }
+  Future<void> fetchCurrentUser() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    user1 = prefs.getString('userId') ?? '';
   }
 
   void _scrollToBottom({bool delay = false}) {
@@ -68,14 +61,31 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  String generateChatId(String id1, String id2) {
+    if (id1.compareTo(id2) < 0) {
+      return '$id1-$id2';
+    } else {
+      return '$id2-$id1';
+    }
+  }
+
   void _addMessage() {
     if (textEditingController.text.isNotEmpty) {
-      FirebaseFirestore.instance.collection('chat').add({
-        'text': textEditingController.text,
-        'timestamp': FieldValue.serverTimestamp(),
-        'sender': user1, // Using user1 as the sender
-        'receiver': user2, // Using user2 as the receiver
-      });
+      if (textEditingController.text.contains(RegExp(r'^\s*$'))) {
+        return;
+      }
+
+      FirebaseFirestore.instance
+          .collection('chat')
+          .add(
+            MessageModel(
+              sender: user1,
+              receiver: widget.user2Id,
+              text: textEditingController.text,
+              timestamp: FieldValue.serverTimestamp(),
+              chatId: chatId ?? '',
+            ).toJson(),
+          );
       textEditingController.clear();
       _scrollToBottom();
     }
@@ -89,9 +99,9 @@ class _ChatScreenState extends State<ChatScreen> {
         resizeToAvoidBottomInset: true,
         appBar: AppBar(
           title: Center(
-            child: const Text(
-              'Chat',
-              style: TextStyle(
+            child: Text(
+              widget.user2Name,
+              style: const TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
               ),
@@ -99,7 +109,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           centerTitle: false,
           backgroundColor: Colors.transparent,
-          elevation: 0,
+          elevation: 8,
           actions: [],
         ),
         body: SafeArea(
@@ -108,117 +118,129 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               children: [
                 Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream:
-                        FirebaseFirestore.instance
-                            .collection('chat')
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('No messages yet.'));
-                      }
-                      return ListView.builder(
-                        reverse: true,
-                        controller: _scrollController,
-                        itemCount: snapshot.data!.docs.length,
-                        itemBuilder: (context, index) {
-                          if (snapshot.data!.docs[index]['sender'] == user1) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppConstants.gap8Px,
-                                vertical: AppConstants.gap4Px,
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Container(
-                                  constraints: BoxConstraints(
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width *
-                                        0.75,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue[400],
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(26),
-                                      topRight: Radius.circular(26),
-                                      bottomLeft: Radius.circular(26),
-                                      bottomRight: Radius.circular(1),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
+                  child:
+                      chatId != null
+                          ? StreamBuilder<QuerySnapshot>(
+                            stream:
+                                FirebaseFirestore.instance
+                                    .collection('chat')
+                                    .where('chatId', isEqualTo: chatId)
+                                    .orderBy('timestamp')
+                                    .snapshots(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData ||
+                                  snapshot.data!.docs.isEmpty) {
+                                return const Center(
+                                  child: Text(ViewConstants.noMessages),
+                                );
+                              }
+                              return ListView.builder(
+                                controller: _scrollController,
+                                itemCount: snapshot.data!.docs.length,
+                                itemBuilder: (context, index) {
+                                  if (snapshot.data!.docs[index]['sender'] ==
+                                      user1) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppConstants.gap8Px,
+                                        vertical: AppConstants.gap4Px,
                                       ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppConstants.gap16Px,
-                                      vertical: AppConstants.gap12Px,
-                                    ),
-                                    child: Text(
-                                      snapshot.data!.docs[index]['text']
-                                          as String,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Container(
+                                          constraints: BoxConstraints(
+                                            maxWidth:
+                                                MediaQuery.of(
+                                                  context,
+                                                ).size.width *
+                                                0.75,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue[400],
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(26),
+                                              topRight: Radius.circular(26),
+                                              bottomLeft: Radius.circular(26),
+                                              bottomRight: Radius.circular(1),
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                blurRadius: 4,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AppConstants.gap16Px,
+                                              vertical: AppConstants.gap12Px,
+                                            ),
+                                            child: Text(
+                                              snapshot.data!.docs[index]['text']
+                                                  as String,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          } else {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppConstants.gap8Px,
-                                vertical: AppConstants.gap4Px,
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  constraints: BoxConstraints(
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width *
-                                        0.75,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(26),
-                                      topRight: Radius.circular(26),
-                                      bottomLeft: Radius.circular(1),
-                                      bottomRight: Radius.circular(26),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
+                                    );
+                                  } else {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppConstants.gap8Px,
+                                        vertical: AppConstants.gap4Px,
                                       ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppConstants.gap16Px,
-                                      vertical: AppConstants.gap12Px,
-                                    ),
-                                    child: Text(
-                                      snapshot.data!.docs[index]['text']
-                                          as String,
-                                      style: TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 16,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Container(
+                                          constraints: BoxConstraints(
+                                            maxWidth:
+                                                MediaQuery.of(
+                                                  context,
+                                                ).size.width *
+                                                0.75,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[300],
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(26),
+                                              topRight: Radius.circular(26),
+                                              bottomLeft: Radius.circular(1),
+                                              bottomRight: Radius.circular(26),
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                blurRadius: 4,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AppConstants.gap16Px,
+                                              vertical: AppConstants.gap12Px,
+                                            ),
+                                            child: Text(
+                                              snapshot.data!.docs[index]['text']
+                                                  as String,
+                                              style: TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
+                                    );
+                                  }
+                                },
+                              );
+                            },
+                          )
+                          : Center(child: CircularProgressIndicator()),
                 ),
                 Row(
                   children: [
@@ -245,5 +267,11 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> iniliazeZomponent() async {
+    await fetchCurrentUser();
+    chatId = generateChatId(user1, widget.user2Id);
+    setState(() {});
   }
 }
