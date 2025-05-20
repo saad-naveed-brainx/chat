@@ -9,4 +9,6 @@ class ViewConstants {
   static const String noUsersFound = 'No users found.';
   static const String you = 'you';
   static const String noMessages = 'No messages yet.';
+  static const String typeMessage = 'Type a message';
+  static const String chat = 'Chat';
 }

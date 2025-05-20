@@ -1,5 +1,4 @@
 import 'package:chatme/views/create_user_profile.dart';
-import 'package:chatme/views/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:chatme/firebase_options.dart';
